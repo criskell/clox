@@ -20,7 +20,7 @@ static int constantInstruction(const char *name, Chunk* chunk, int offset) {
   // `%4d`
   // Prints an integer (%d) occupying 4 characters, right-aligned.
   // If the number requires fewer characters, it is pushed to the right with spaces occupying the left.
-  printf("%-16s %4d '", name, constant);
+  printf(" %-16s %4d '", name, constant);
   printValue(chunk->constants.values[constant]);
   printf("'\n");
 
@@ -36,7 +36,9 @@ static int simpleInstruction(const char* name, int offset) {
 int disassembleInstruction(Chunk* chunk, int offset) {
   printf("%04d ", offset);
 
-  if (offset > 0 && chunk->lines[offset] == chunk->lines[offset -1]) {
+  int line = getLine(chunk, offset);
+
+  if (offset > 0 && getLine(chunk, offset - 1)) {
     printf("   | ");
   } else {
     printf("%4d", chunk->lines[offset]);

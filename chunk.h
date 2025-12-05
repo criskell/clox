@@ -9,6 +9,11 @@ typedef enum {
   OP_RETURN,
 } OpCode;
 
+typedef struct {
+  int offset;
+  int line;
+} LineStart;
+
 // Bytecode would be a compact, serialized version of the AST, highly optimized for how the interpreter will deserialize it.
 typedef struct {
   // This implements a dynamic array.
@@ -27,6 +32,12 @@ typedef struct {
   // causing fewer cache misses on the CPU.
   // Stores an array that matches instruction offsets in the bytecode to lines of compiled code.
   int* lines;
+
+  int lineCount;
+  int lineCapacity;
+  
+  LineStart* lineChunks;
+
   // Stores constant pool.
   ValueArray constants;
 } Chunk;
@@ -35,5 +46,6 @@ void initChunk(Chunk* chunk);
 void freeChunk(Chunk* chunk);
 void writeChunk(Chunk* chunk, uint8_t byte, int line);
 int addConstant(Chunk* chunk, Value value);
+int getLine(Chunk* chunk, int instructionOffset);
 
 #endif
