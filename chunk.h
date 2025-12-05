@@ -2,11 +2,14 @@
 #define clox_chunk_h
 
 #include "common.h"
+#include "value.h"
 
 typedef enum {
+  OP_CONSTANT,
   OP_RETURN,
 } OpCode;
 
+// Bytecode would be a compact, serialized version of the AST, highly optimized for how the interpreter will deserialize it.
 typedef struct {
   // This implements a dynamic array.
   // A dynamic array consists of a pointer to a fixed array, the number of elements, and the capacity.
@@ -20,9 +23,17 @@ typedef struct {
   int count;
   int capacity;
   uint8_t* code;
+  // This is inefficient in terms of memory but good in terms of caching, since an interpreter only cares about the operand and opcodes,
+  // causing fewer cache misses on the CPU.
+  // Stores an array that matches instruction offsets in the bytecode to lines of compiled code.
+  int* lines;
+  // Stores constant pool.
+  ValueArray constants;
 } Chunk;
 
 void initChunk(Chunk* chunk);
-void writeChunk(Chunk* chunk, uint8_t byte);
+void freeChunk(Chunk* chunk);
+void writeChunk(Chunk* chunk, uint8_t byte, int line);
+int addConstant(Chunk* chunk, Value value);
 
 #endif

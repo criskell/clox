@@ -1,5 +1,5 @@
 CC = gcc
-OBJ = main.o chunk.o
+OBJ = main.o chunk.o mem.o debug.o
 
 clox: $(OBJ)
 	$(CC) -o clox $(OBJ)
