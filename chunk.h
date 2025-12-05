@@ -6,6 +6,14 @@
 
 typedef enum {
   OP_CONSTANT,
+  // One trade-off when having the same instructions but for different sizes is that it increases the code size of the main loop,
+  // thus harming (spatial-)locality.
+  // Locality is the property of programs that describes how they access memory.
+  // - Temporal locality: If you've used a piece of data recently, you're likely to use it again in the future.
+  //                      This data tends to remain cached.
+  // - Spatial locality: If you access an address, you're likely accessing nearby data in memory.
+  //                     Using data that is already close together avoids accessing slow memory.
+  OP_CONSTANT_LONG,
   OP_RETURN,
 } OpCode;
 
@@ -46,6 +54,7 @@ void initChunk(Chunk* chunk);
 void freeChunk(Chunk* chunk);
 void writeChunk(Chunk* chunk, uint8_t byte, int line);
 int addConstant(Chunk* chunk, Value value);
+void writeConstant(Chunk* chunk, Value value, int line);
 int getLine(Chunk* chunk, int instructionOffset);
 
 #endif

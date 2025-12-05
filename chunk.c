@@ -57,6 +57,22 @@ int addConstant(Chunk* chunk, Value value) {
   return chunk->constants.count - 1;
 }
 
+void writeConstant(Chunk* chunk, Value value, int line) {
+  int index = addConstant(chunk, value);
+
+  if (index < 256) {
+    writeChunk(chunk, OP_CONSTANT, line);
+    writeChunk(chunk, (uint8_t)index, line);
+  } else {
+    writeChunk(chunk, OP_CONSTANT_LONG, line);
+    // We chose the little-endian order.
+    // 24 bits in total.
+    writeChunk(chunk, (uint8_t)(index & 0xff), line);
+    writeChunk(chunk, (uint8_t)((index >> 8) & 0xff), line);
+    writeChunk(chunk, (uint8_t)((index >> 16) & 0xff), line);
+  }
+}
+
 int getLine(Chunk* chunk, int instructionOffset) {
   // It performs a binary search to find the largest offset in lineChunks that is less than or equal to the desired offset.
   // When we find it, we return the associated line.
