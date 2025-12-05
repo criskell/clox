@@ -14,6 +14,12 @@ typedef enum {
   // - Spatial locality: If you access an address, you're likely accessing nearby data in memory.
   //                     Using data that is already close together avoids accessing slow memory.
   OP_CONSTANT_LONG,
+
+  OP_ADD,
+  OP_SUBTRACT,
+  OP_MULTIPLY,
+  OP_DIVIDE,
+  OP_NEGATE,
   OP_RETURN,
 } OpCode;
 

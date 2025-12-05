@@ -8,4 +8,6 @@
 // Defines integer types with exact size. For example, int8_t, uint8_t, int16_t, etc.
 #include <stdint.h>
 
+#define DEBUG_TRACE_EXECUTION
+
 #endif
