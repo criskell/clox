@@ -113,7 +113,77 @@ static void skipWhitespace() {
   }
 }
 
+// start -> Index within the lexama where the comparison begins.
+// length -> Length of the remainder of the keyword to be compared.
+// rest -> Rest of the keyword.
+// The type of token to be returned if it is indeed a keyword.
+static TokenType checkKeyword(int start, int length, const char* rest, TokenType type) {
+  // Conditions:
+  // - Checks if the total length of the current lexame matches the expected length of the keyword.
+  // - Compare the rest of the lexeme with the expected rest, checking if they are the same.
+  if (scanner.current - scanner.start == start + length && memcmp(scanner.start + start, rest, length) == 0) {
+    return type;
+  }
+
+  return TOKEN_IDENTIFIER;
+}
+
 static TokenType identifierType() {
+  // Coding a trie (DFA) for keyword recognition.
+  switch (scanner.start[0]) { // checking from start = 0
+    case 'a':
+      // checking from start = 1
+      return checkKeyword(1, 2, "nd", TOKEN_AND);
+    case 'c':
+      return checkKeyword(1, 4, "lass", TOKEN_CLASS);
+    case 'e':
+      return checkKeyword(1, 3, "lse", TOKEN_ELSE);
+    case 'f':
+      // Check if there is a second letter.
+      if (scanner.current - scanner.start > 1) {
+        // Check second letter now.
+        // checking from start = 1
+        switch (scanner.start[1]) {
+          case 'a':
+            // checking from start = 2
+            return checkKeyword(2, 3, "lse", TOKEN_FALSE);
+          case 'u':
+            return checkKeyword(2, 1, "n", TOKEN_FUN);
+          case 'o':
+            return checkKeyword(2, 1, "r", TOKEN_FOR);
+        }
+      }
+
+      break;
+    case 'i':
+      return checkKeyword(1, 1, "f", TOKEN_IF);
+    case 'n':
+      return checkKeyword(1, 2, "il", TOKEN_NIL);
+    case 'o':
+      return checkKeyword(1, 1, "r", TOKEN_OR);
+    case 'p':
+      return checkKeyword(1, 4, "rint", TOKEN_PRINT);
+    case 'r':
+      return checkKeyword(1, 5, "eturn", TOKEN_RETURN);
+    case 's':
+      return checkKeyword(1, 4, "uper", TOKEN_SUPER);
+    case 't':
+      if (scanner.current - scanner.start > 1) {
+        switch (scanner.start[1]) {
+          case 'h':
+            return checkKeyword(2, 2, "is", TOKEN_THIS);
+          case 'r':
+            return checkKeyword(2, 2, "ue", TOKEN_TRUE);
+        }
+      }
+
+      break;
+    case 'v':
+      return checkKeyword(1, 2, "ar", TOKEN_VAR);
+    case 'w':
+      return checkKeyword(1, 4, "hile", TOKEN_WHILE);
+  }
+
   return TOKEN_IDENTIFIER;
 }
 
