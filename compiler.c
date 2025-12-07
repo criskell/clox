@@ -269,11 +269,6 @@ static void variable() {
   printf("variable() %d\n", parser.current.type);
 }
 
-static void equal() {
-  consume(TOKEN_NUMBER, "Expected number here.");
-  parsePrecedence(PREC_ASSIGNMENT);
-}
-
 // Compile grouping expresions.
 //
 // Grouping expressions are called prefix expressions because we can determine the form of the expression simply by
@@ -311,7 +306,7 @@ ParseRule rules[] = {
   [TOKEN_STAR] = {NULL, binary, PREC_FACTOR},
   [TOKEN_BANG] = {NULL, NULL, PREC_NONE},
   [TOKEN_BANG_EQUAL] = {NULL, NULL, PREC_NONE},
-  [TOKEN_EQUAL] = {NULL, equal, PREC_ASSIGNMENT}, // FIXME: Remove this.
+  [TOKEN_EQUAL] = {NULL, NULL, PREC_NONE},
   [TOKEN_EQUAL_EQUAL] = {NULL, NULL, PREC_NONE},
   [TOKEN_GREATER] = {NULL, NULL, PREC_NONE},
   [TOKEN_GREATER_EQUAL] = {NULL, NULL, PREC_NONE},
