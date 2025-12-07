@@ -30,6 +30,7 @@ typedef struct {
 typedef enum {
   PREC_NONE,
   PREC_ASSIGNMENT,
+  PREC_CONDITIONAL,
   PREC_OR,
   PREC_AND,
   PREC_EQUALITY,
@@ -53,6 +54,7 @@ typedef struct {
   ParseFn infix;
 
   // It indicates the operator precedence for this rule.
+  // Defines how much the expression swallows before returning.
   Precedence precedence;
 
   // This is a anonymous struct.
@@ -97,18 +99,25 @@ static void errorAtCurrent(const char* message) {
   errorAt(&parser.current, message);
 }
 
+// Advance to next token.
 static void advance() {
   parser.previous = parser.current;
 
   for (;;) {
     parser.current = scanToken();
 
-    if (parser.current.type != TOKEN_ERROR) break;
+    if (parser.current.type != TOKEN_ERROR) {
+#ifdef DEBUG_PRINT_TOKENS
+    printf("== parser.current = %2d '%.*s'\n", parser.current.type, parser.current.length, parser.current.start);
+#endif
+      break;
+    }
 
     errorAtCurrent(parser.current.start);
   }
 }
 
+// Consume a required token.
 static void consume(TokenType type, const char* message) {
   if (parser.current.type == type) {
     advance();
@@ -148,10 +157,12 @@ static uint8_t makeConstant(Value value) {
   return (uint8_t)constant;
 }
 
+// Emit OP_CONSTANT instruction.
 static void emitConstant(Value value) {
   emitBytes(OP_CONSTANT, makeConstant(value));
 }
 
+// End compiler and maybe print code.
 static void endCompiler() {
   emitReturn();
 
@@ -159,6 +170,7 @@ static void endCompiler() {
   // We added this check because in syntax error mode, the compiler might continue to generate nonsensical code.
   if (!parser.hadError) {
     disassembleChunk(currentChunk(), "code");
+    printf("==\n");
   } 
 #endif
 }
@@ -171,6 +183,8 @@ static void parsePrecedence(Precedence precedence);
 static void binary() {
   TokenType operatorType = parser.previous.type;
   ParseRule* rule = getRule(operatorType);
+
+  // `+1` makes left-associative.
   parsePrecedence((Precedence)(rule->precedence + 1));
 
   switch (operatorType) {
@@ -243,6 +257,23 @@ static void number() {
   emitConstant(value);
 }
 
+// Compile OR expressions.
+//
+// FIXME: Jumps.
+static void or_() {
+  parsePrecedence(PREC_OR);
+}
+
+static void variable() {
+  // TODO
+  printf("variable() %d\n", parser.current.type);
+}
+
+static void equal() {
+  consume(TOKEN_NUMBER, "Expected number here.");
+  parsePrecedence(PREC_ASSIGNMENT);
+}
+
 // Compile grouping expresions.
 //
 // Grouping expressions are called prefix expressions because we can determine the form of the expression simply by
@@ -250,6 +281,19 @@ static void number() {
 static void grouping() {
   expression();
   consume(TOKEN_RIGHT_PAREN, "Expect ')' after expression.");
+}
+
+// Compile ternary expressions.
+static void conditional() {
+  printf("> conditional\n");
+  parsePrecedence(PREC_CONDITIONAL);
+  printf("Parsed then branch.\n");
+
+  consume(TOKEN_COLON, "Expect ':' after then branch of conditional operator.");
+  printf("Consumed colon token.\n");
+
+  parsePrecedence(PREC_ASSIGNMENT);
+  printf("< conditional\n");
 }
 
 // Define the parser rules.
@@ -267,13 +311,13 @@ ParseRule rules[] = {
   [TOKEN_STAR] = {NULL, binary, PREC_FACTOR},
   [TOKEN_BANG] = {NULL, NULL, PREC_NONE},
   [TOKEN_BANG_EQUAL] = {NULL, NULL, PREC_NONE},
-  [TOKEN_EQUAL] = {NULL, NULL, PREC_NONE},
+  [TOKEN_EQUAL] = {NULL, equal, PREC_ASSIGNMENT}, // FIXME: Remove this.
   [TOKEN_EQUAL_EQUAL] = {NULL, NULL, PREC_NONE},
   [TOKEN_GREATER] = {NULL, NULL, PREC_NONE},
   [TOKEN_GREATER_EQUAL] = {NULL, NULL, PREC_NONE},
   [TOKEN_LESS] = {NULL, NULL, PREC_NONE},
   [TOKEN_LESS_EQUAL] = {NULL, NULL, PREC_NONE},
-  [TOKEN_IDENTIFIER] = {NULL, NULL, PREC_NONE},
+  [TOKEN_IDENTIFIER] = {variable, NULL, PREC_NONE},
   [TOKEN_STRING] = {NULL, NULL, PREC_NONE},
   [TOKEN_NUMBER] = {number, NULL, PREC_NONE},
   [TOKEN_AND] = {NULL, NULL, PREC_NONE},
@@ -284,7 +328,7 @@ ParseRule rules[] = {
   [TOKEN_FUN] = {NULL, NULL, PREC_NONE},
   [TOKEN_IF] = {NULL, NULL, PREC_NONE},
   [TOKEN_NIL] = {NULL, NULL, PREC_NONE},
-  [TOKEN_OR] = {NULL, NULL, PREC_NONE},
+  [TOKEN_OR] = {NULL, or_, PREC_OR},
   [TOKEN_PRINT] = {NULL, NULL, PREC_NONE},
   [TOKEN_RETURN] = {NULL, NULL, PREC_NONE},
   [TOKEN_SUPER] = {NULL, NULL, PREC_NONE},
@@ -294,8 +338,12 @@ ParseRule rules[] = {
   [TOKEN_WHILE] = {NULL, NULL, PREC_NONE},
   [TOKEN_ERROR] = {NULL, NULL, PREC_NONE},
   [TOKEN_EOF] = {NULL, NULL, PREC_NONE},
+  [TOKEN_QUESTION] = {NULL, conditional, PREC_CONDITIONAL},
 };
 
+// Get parse rule based on the token type.
+//
+// Returns the address of that rule.
 static ParseRule* getRule(TokenType type) {
   return &rules[type];
 }
@@ -305,15 +353,24 @@ static void expression() {
   parsePrecedence(PREC_ASSIGNMENT);
 }
 
+// Entry point of the compiler. It goes through the lexical analysis, syntactic analysis, and compilation
+// to bytecode phases in the `Chunk` pointed to by `chunk`.
 bool compile(const char* source, Chunk* chunk) {
+  // Start the lazy lexical analysis.
   initScanner(source);
+
   compilingChunk = chunk;
 
   parser.hadError = false;
+
+  // Used to prevent cascading errors.
   parser.panicMode = false;
 
+  // Place parser.current in the first token of the code.
   advance();
   expression();
+
+  // If there is trash, notify the user.
   consume(TOKEN_EOF, "Expect end of expression.");
 
   endCompiler();
