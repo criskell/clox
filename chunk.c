@@ -7,6 +7,7 @@ void initChunk(Chunk* chunk) {
   chunk->capacity = 0;
   chunk->code = NULL;
   chunk->lines = NULL;
+
   chunk->lineCount = 0;
   chunk->lineCapacity = 0;
   chunk->lineChunks = NULL;
