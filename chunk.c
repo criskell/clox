@@ -1,7 +1,6 @@
 #include "chunk.h"
 #include "mem.h"
 #include "value.h"
-#include <stdio.h>
 
 void initChunk(Chunk* chunk) {
   chunk->code = 0;
