@@ -18,3 +18,4 @@ Lox implementation in C, created while reading CrafitingInterpreters.
   - Collision resolution
 - String interning
 - Benchmarking
+- Debugging with GDB
