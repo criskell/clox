@@ -23,6 +23,8 @@ struct ObjString {
   // Implements struct inheritance / type prunning.
   Obj obj;
   int length;
+
+  uint32_t hash;
   
   // C99 flexible array member syntax
   char chars[];
@@ -32,6 +34,8 @@ struct ObjString {
 ObjString* makeString(int length);
 ObjString* copyString(const char* chars, int length);
 void printObject(Value value);
+uint32_t hashString(const char* key, int length);
+void internString(ObjString* key);
 
 // Instead of a macro, we put this is a inline function to prevent evaluating value twice.
 static inline bool isObjType(Value value, ObjType type) {

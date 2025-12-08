@@ -27,5 +27,6 @@
 // oldSize = non-zero, newSize > oldSize: Grow existing allocation.  
 void* reallocate(void* pointer, size_t oldSize, size_t newSize);
 void freeObjects();
+void freeObject(Obj* object);
 
 #endif

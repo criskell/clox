@@ -48,10 +48,12 @@ static void runtimeError(const char* format, ...) {
 void initVM() {
   resetStack();
 
-  vm.objects = NULL;
+  vm.objects = NULL; 
+  initTable(&vm.strings);
 }
 
 void freeVM() {
+  freeTable(&vm.strings);
   freeObjects();
 }
 
@@ -81,8 +83,18 @@ static void concatenate() {
   ObjString* result = makeString(length);
   memcpy(result->chars, a->chars, a->length);
   memcpy(result->chars + a->length, b->chars, b->length);
+  result->hash = hashString(result->chars, length);
   result->chars[length] = '\0';
 
+  ObjString* interned = tableFindString(&vm.strings, result->chars, length, result->hash);
+
+  if (interned) {
+    freeObject((Obj*) result);
+    push(OBJ_VAL(interned));
+    return;
+  }
+
+  internString(result);
   push(OBJ_VAL(result));
 }
 
