@@ -23,11 +23,13 @@ struct ObjString {
   // Implements struct inheritance / type prunning.
   Obj obj;
   int length;
-  char* chars;
+  
+  // C99 flexible array member syntax
+  char chars[];
 };
 
 // Take ownership of the string.
-ObjString* takeString(char* chars, int length);
+ObjString* makeString(int length);
 ObjString* copyString(const char* chars, int length);
 void printObject(Value value);
 

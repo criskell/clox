@@ -17,19 +17,21 @@ static Obj* allocateObject(size_t size, ObjType type) {
   return object;
 }
 
-static ObjString* allocateString(char* chars, int length) {
-  // Calls "base class constructor".
-  ObjString* string = ALLOCATE_OBJ(ObjString, OBJ_STRING);
+// Creates a string in the heap using the flexible array member concept in structs.
+ObjString* makeString(int length) {
+  ObjString* string = (ObjString*)allocateObject(sizeof(ObjString) + length + 1, OBJ_STRING);
   string->length = length;
-  string->chars = chars;
+  
   return string;
 }
 
 ObjString* copyString(const char* chars, int length) {
-  char* heapChars = ALLOCATE(char, length + 1);
-  memcpy(heapChars, chars, length);
-  heapChars[length] = '\0';
-  return allocateString(heapChars, length);
+  ObjString* string = makeString(length);
+
+  memcpy(string->chars, chars, length);
+  string->chars[length] = '\0';
+
+  return string;
 }
 
 void printObject(Value value) {
@@ -38,8 +40,4 @@ void printObject(Value value) {
       printf("%s", AS_CSTRING(value));
       break;
   }
-}
-
-ObjString* takeString(char* chars, int length) {
-  return allocateString(chars, length);
 }
