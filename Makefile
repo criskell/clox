@@ -5,7 +5,7 @@ clox: $(OBJ)
 	$(CC) -o clox $(OBJ)
 
 %.o: %.c
-	$(CC) -c $<
+	$(CC) -g -c $<
 
 clean:
 	rm -rf *.o clox

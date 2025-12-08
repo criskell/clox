@@ -1,12 +1,14 @@
 #include "chunk.h"
 #include "mem.h"
 #include "value.h"
+#include <stdio.h>
 
 void initChunk(Chunk* chunk) {
   chunk->code = 0;
   chunk->capacity = 0;
   chunk->code = NULL;
   chunk->lines = NULL;
+  chunk->count = 0;
 
   chunk->lineCount = 0;
   chunk->lineCapacity = 0;

@@ -74,12 +74,12 @@ static void simple_program() {
   initChunk(&chunk);
   
   // OP_CONSTANT <1.2>
-  int constantIndex = addConstant(&chunk, 1.2);
+  int constantIndex = addConstant(&chunk, NUMBER_VAL(1.2));
   writeChunk(&chunk, OP_CONSTANT, 123);
   writeChunk(&chunk, constantIndex, 123);
 
   // OP_CONSTANT <3.4>
-  constantIndex = addConstant(&chunk, 3.4);
+  constantIndex = addConstant(&chunk, NUMBER_VAL(3.4));
   writeChunk(&chunk, OP_CONSTANT, 123);
   writeChunk(&chunk, constantIndex, 123);
 
@@ -87,7 +87,7 @@ static void simple_program() {
   writeChunk(&chunk, OP_ADD, 123);
 
   // OP_CONSTANT <5.6>
-  constantIndex = addConstant(&chunk, 5.6);
+  constantIndex = addConstant(&chunk, NUMBER_VAL(5.6));
   writeChunk(&chunk, OP_CONSTANT, 123);
   writeChunk(&chunk, constantIndex, 123);
 
