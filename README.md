@@ -17,3 +17,4 @@ Lox implementation in C, created while reading CrafitingInterpreters.
   - Linear probing
   - Collision resolution
 - String interning
+- Benchmarking
