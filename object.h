@@ -25,7 +25,10 @@ struct ObjString {
   char* chars;
 };
 
+// Take ownership of the string.
+ObjString* takeString(char* chars, int length);
 ObjString* copyString(const char* chars, int length);
+void printObject(Value value);
 
 // Instead of a macro, we put this is a inline function to prevent evaluating value twice.
 static inline bool isObjType(Value value, ObjType type) {
