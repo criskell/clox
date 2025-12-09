@@ -343,9 +343,13 @@ static void or_() {
   parsePrecedence(PREC_OR);
 }
 
+static void namedVariable(Token name) {
+  uint8_t arg = identifierConstant(&name);
+  emitBytes(OP_GET_GLOBAL, arg); 
+}
+
 static void variable() {
-  // TODO
-  printf("variable() %d\n", parser.current.type);
+  namedVariable(parser.previous);
 }
 
 // Compile grouping expresions.
