@@ -411,19 +411,59 @@ static void expression() {
   parsePrecedence(PREC_ASSIGNMENT);
 }
 
+static void expressionStatement() {
+  expression();
+  consume(TOKEN_SEMICOLON, "Expect ';' after expression.");
+  // an expression evaluates the expression and discards the result.
+  emitByte(OP_POP); // ensure statement stack effect = 0 
+}
+
 static void printStatement() {
   expression();
   consume(TOKEN_SEMICOLON, "Expect ';' after value.");
   emitByte(OP_PRINT);
 }
 
+static void synchronize() {
+  parser.panicMode = false;
+
+  // Implement error recovery by consuming tokens.
+  while (parser.current.type != TOKEN_EOF) {
+    // Look at a statement boundary like a semicolon.
+    if (parser.previous.type == TOKEN_SEMICOLON) return;
+
+    // Or look at a token that begins a statement.
+    switch (parser.current.type) {
+      case TOKEN_CLASS:
+      case TOKEN_FUN:
+      case TOKEN_VAR:
+      case TOKEN_FOR:
+      case TOKEN_IF:
+      case TOKEN_WHILE:
+      case TOKEN_PRINT:
+      case TOKEN_RETURN:
+        return;
+
+      default:
+        ; // Do nothing.
+    }
+
+    advance();
+  }
+}
+
 static void declaration() {
   statement();
+
+  // We chose statements as the synchronization point in panic mode error recovery.
+  if (parser.panicMode) synchronize();
 }
 
 static void statement() {
   if (match(TOKEN_PRINT)) {
     printStatement();
+  } else {
+    expressionStatement();
   }
 }
 
@@ -441,7 +481,7 @@ bool compile(const char* source, Chunk* chunk) {
   parser.panicMode = false;
 
   advance();
-  
+
   while (!match(TOKEN_EOF)) {
     declaration();  
   }
