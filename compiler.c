@@ -127,6 +127,16 @@ static void consume(TokenType type, const char* message) {
   errorAtCurrent(message);
 }
 
+static bool check(TokenType type) {
+  return parser.current.type == type;
+}
+
+static bool match(TokenType type) {
+  if (!check(type)) return false;
+  advance();
+  return true;
+}
+
 // Emits a byte in the current bytecode chunk.
 static void emitByte(uint8_t byte) {
   writeChunk(currentChunk(), byte, parser.previous.line);
@@ -178,6 +188,8 @@ static void endCompiler() {
 static void expression();
 static ParseRule* getRule(TokenType type);
 static void parsePrecedence(Precedence precedence);
+static void declaration();
+static void statement();
 
 // The goal is to compile a binary operator found in an expression.
 static void binary() {
@@ -399,6 +411,22 @@ static void expression() {
   parsePrecedence(PREC_ASSIGNMENT);
 }
 
+static void printStatement() {
+  expression();
+  consume(TOKEN_SEMICOLON, "Expect ';' after value.");
+  emitByte(OP_PRINT);
+}
+
+static void declaration() {
+  statement();
+}
+
+static void statement() {
+  if (match(TOKEN_PRINT)) {
+    printStatement();
+  }
+}
+
 // Entry point of the compiler. It goes through the lexical analysis, syntactic analysis, and compilation
 // to bytecode phases in the `Chunk` pointed to by `chunk`.
 bool compile(const char* source, Chunk* chunk) {
@@ -412,12 +440,11 @@ bool compile(const char* source, Chunk* chunk) {
   // Used to prevent cascading errors.
   parser.panicMode = false;
 
-  // Place parser.current in the first token of the code.
   advance();
-  expression();
-
-  // If there is trash, notify the user.
-  consume(TOKEN_EOF, "Expect end of expression.");
+  
+  while (!match(TOKEN_EOF)) {
+    declaration();  
+  }
 
   endCompiler();
   return !parser.hadError;
