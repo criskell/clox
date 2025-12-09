@@ -49,10 +49,12 @@ void initVM() {
   resetStack();
 
   vm.objects = NULL; 
+  initTable(&vm.globals);
   initTable(&vm.strings);
 }
 
 void freeVM() {
+  freeTable(&vm.globals);
   freeTable(&vm.strings);
   freeObjects();
 }
@@ -99,8 +101,10 @@ static void concatenate() {
 }
 
 static InterpretResult run() {
+
 #define READ_BYTE() (*vm.ip++)
 #define READ_CONSTANT() (vm.chunk->constants.values[READ_BYTE()])
+#define READ_STRING() AS_STRING(READ_CONSTANT())
 
 // The `do/while` loop here is a fun technique. It allows you to expand the macro into a set of statements within a block
 // and still allow a semicolon after it. If we only used blocks, we wouldn't be able to put a semicolon after the macro.
@@ -159,6 +163,18 @@ static InterpretResult run() {
       case OP_TRUE: push(BOOL_VAL(true)); break;
       case OP_FALSE: push(BOOL_VAL(false)); break;
       case OP_POP: pop(); break;
+      case OP_DEFINE_GLOBAL: {
+        ObjString* name = READ_STRING();
+        
+        // Initializer expression is in stack at 0 distance.
+        // We use peek() here to ensure that the value is reachable by the garbage collector and thus is not collected
+        // in the middle of an insertion into the hash table. A hash table can trigger a dynamic allocation which can
+        // trigger garbage collection.
+        tableSet(&vm.globals, name, peek(0));
+        pop();
+
+        break;
+      };
       case OP_EQUAL: {
         Value a = pop();
         Value b = pop();
@@ -200,6 +216,7 @@ static InterpretResult run() {
 
 #undef READ_BYTE
 #undef READ_CONSTANT
+#undef READ_STRING
 #undef BINARY_OP
 }
 

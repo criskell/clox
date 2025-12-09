@@ -191,6 +191,22 @@ static void parsePrecedence(Precedence precedence);
 static void declaration();
 static void statement();
 
+static uint8_t identifierConstant(Token* name) {
+  return makeConstant(OBJ_VAL(copyString(name->start, name->length)));
+}
+
+static uint8_t parseVariable(const char* errorMessage) {
+  consume(TOKEN_IDENTIFIER, errorMessage);
+
+  // Global variables are searched by name at runtime, and using constants prevents embedding large strings
+  // directly into the chunk's instruction list.
+  return identifierConstant(&parser.previous);
+}
+
+static void defineVariable(uint8_t global) {
+  emitBytes(OP_DEFINE_GLOBAL, global);
+}
+
 // The goal is to compile a binary operator found in an expression.
 static void binary() {
   TokenType operatorType = parser.previous.type;
@@ -411,6 +427,22 @@ static void expression() {
   parsePrecedence(PREC_ASSIGNMENT);
 }
 
+static void varDeclaration() {
+  uint8_t global = parseVariable("Expect variable name.");
+
+  if (match(TOKEN_EQUAL)) {
+    // Compile initializer expression
+    expression();
+  } else {
+    // Desugars a uninitialized variable declaration like `var a;` into `var a = nil;`.
+    emitByte(OP_NIL);
+  }
+
+  consume(TOKEN_SEMICOLON, "Expect ';' after variable declaration.");
+
+  defineVariable(global);
+}
+
 static void expressionStatement() {
   expression();
   consume(TOKEN_SEMICOLON, "Expect ';' after expression.");
@@ -453,7 +485,11 @@ static void synchronize() {
 }
 
 static void declaration() {
-  statement();
+  if (match(TOKEN_VAR)) {
+    varDeclaration();
+  } else {
+    statement();
+  }
 
   // We chose statements as the synchronization point in panic mode error recovery.
   if (parser.panicMode) synchronize();
