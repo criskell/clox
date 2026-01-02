@@ -43,7 +43,7 @@ typedef enum {
 } Precedence;
 
 // Pointer to a function that has no parameters and returns nothing (void).
-typedef void (*ParseFn)();
+typedef void (*ParseFn)(bool canAssign);
 
 // It specifies how a token should be read during parsing.
 typedef struct {
@@ -191,6 +191,8 @@ static void parsePrecedence(Precedence precedence);
 static void declaration();
 static void statement();
 
+// Store a token in the constant pool
+// And returns the index from it
 static uint8_t identifierConstant(Token* name) {
   return makeConstant(OBJ_VAL(copyString(name->start, name->length)));
 }
@@ -208,7 +210,7 @@ static void defineVariable(uint8_t global) {
 }
 
 // The goal is to compile a binary operator found in an expression.
-static void binary() {
+static void binary(bool canAssign) {
   TokenType operatorType = parser.previous.type;
   ParseRule* rule = getRule(operatorType);
 
@@ -261,7 +263,7 @@ static void binary() {
   }
 }
 
-static void literal() {
+static void literal(bool canAssign) {
   switch (parser.previous.type) {
     case TOKEN_FALSE:
       emitByte(OP_FALSE);
@@ -291,17 +293,23 @@ static void parsePrecedence(Precedence precedence) {
     return;
   }
 
-  prefixRule();
+  bool canAssign = precedence <= PREC_ASSIGNMENT;
+  prefixRule(canAssign);
 
   while (precedence <= getRule(parser.current.type)->precedence) {
     advance();
     ParseFn infixRule = getRule(parser.previous.type)->infix;
-    infixRule();
+    infixRule(canAssign);
+  }
+
+  // esse codigo seria executado em que parte
+  if (canAssign && match(TOKEN_EQUAL)) {
+    error("Invalid assignment target.");
   }
 }
 
 // Compile unary expressions.
-static void unary() {
+static void unary(bool canAssgin) {
   TokenType operatorType = parser.previous.type;
 
   // Compile operand.
@@ -324,7 +332,7 @@ static void unary() {
 }
 
 // Compile number literal expressions.
-static void number() {
+static void number(bool canAssgin) {
   // `stdpod` convert a string to double.
   // `endptr` is left with unconsumed characters.
   // We assume that the token for the number literal has already been consumed and is stored in `previous`.
@@ -332,37 +340,43 @@ static void number() {
   emitConstant(NUMBER_VAL(value));
 }
 
-static void string() {
+static void string(bool canAssgin) {
   emitConstant(OBJ_VAL(copyString(parser.previous.start + 1, parser.previous.length - 2)));
 }
 
 // Compile OR expressions.
 //
 // FIXME: Jumps.
-static void or_() {
+static void or_(bool canAssign) {
   parsePrecedence(PREC_OR);
 }
 
-static void namedVariable(Token name) {
+static void namedVariable(Token name, bool canAssign) {
   uint8_t arg = identifierConstant(&name);
-  emitBytes(OP_GET_GLOBAL, arg); 
+
+  if (canAssign && match(TOKEN_EQUAL)) {
+    expression(); // Compile assigned value
+    emitBytes(OP_SET_GLOBAL, arg); // Emit an assignment instruction 
+  } else {
+    emitBytes(OP_GET_GLOBAL, arg);
+  }
 }
 
-static void variable() {
-  namedVariable(parser.previous);
+static void variable(bool canAssign) {
+  namedVariable(parser.previous, canAssign);
 }
 
 // Compile grouping expresions.
 //
 // Grouping expressions are called prefix expressions because we can determine the form of the expression simply by
 // looking at the first token.
-static void grouping() {
+static void grouping(bool canAssign) {
   expression();
   consume(TOKEN_RIGHT_PAREN, "Expect ')' after expression.");
 }
 
 // Compile ternary expressions.
-static void conditional() {
+static void conditional(bool canAssign) {
   printf("> conditional\n");
   parsePrecedence(PREC_CONDITIONAL);
   printf("Parsed then branch.\n");

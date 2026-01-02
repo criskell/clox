@@ -8,8 +8,8 @@
 // Defines integer types with exact size. For example, int8_t, uint8_t, int16_t, etc.
 #include <stdint.h>
 
-#define DEBUG_PRINT_CODE
+// #define DEBUG_PRINT_CODE
 // #define DEBUG_PRINT_TOKENS
-#define DEBUG_TRACE_EXECUTION
+// #define DEBUG_TRACE_EXECUTION
 
 #endif

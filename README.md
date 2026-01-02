@@ -19,3 +19,12 @@ Lox implementation in C, created while reading CrafitingInterpreters.
 - String interning
 - Benchmarking
 - Debugging with GDB
+
+## Running a test
+
+Use makefile:
+
+```bash
+make
+./clox tests/language/assignment.lox
+```
