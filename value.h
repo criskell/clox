@@ -34,6 +34,8 @@ typedef struct {
   union {
     bool boolean;
     double number;
+
+    // It's probably a pointer to an object allocated on the heap.
     Obj* obj;
   } as;
 } Value;

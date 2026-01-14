@@ -134,6 +134,8 @@ void tableAddAll(Table *from, Table *to) {
 }
 
 ObjString* tableFindString(Table* table, const char* chars, int length, uint32_t hash) {
+  // This specialized function searches for keys by value.
+
   if (table->count == 0) return NULL;
 
   uint32_t index = hash % table->capacity;

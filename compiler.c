@@ -9,6 +9,8 @@
 #include "debug.h"
 #endif
 
+Table stringConstants;
+
 // The purpose of this struct is to maintain the parser's state while it is reading the source code.
 typedef struct {
   // Store the current token that the parser is analyzing.
@@ -191,10 +193,26 @@ static void parsePrecedence(Precedence precedence);
 static void declaration();
 static void statement();
 
-// Store a token in the constant pool
-// And returns the index from it
+/**
+ * Store a token in the constant pool and returns the index from it.
+ *
+ * It caches the identifier strings to reduce the entries in the constant pool.
+ */
 static uint8_t identifierConstant(Token* name) {
-  return makeConstant(OBJ_VAL(copyString(name->start, name->length)));
+  // Remember that strings are already internalized.
+  // We are saving space in the constant pool.
+  ObjString* string = copyString(name->start, name->length);
+  Value indexValue;
+
+  if (tableGet(&stringConstants, string, &indexValue)) {
+    return (uint8_t)AS_NUMBER(indexValue);
+  }
+
+  // `string` is a pointer to an object allocated on the heap.
+  uint8_t index = makeConstant(OBJ_VAL(string));
+  tableSet(&stringConstants, string, NUMBER_VAL((double)index));
+
+  return index;
 }
 
 static uint8_t parseVariable(const char* errorMessage) {
@@ -526,14 +544,12 @@ static void statement() {
 bool compile(const char* source, Chunk* chunk) {
   // Start the lazy lexical analysis.
   initScanner(source);
-
   compilingChunk = chunk;
-
   parser.hadError = false;
-
   // Used to prevent cascading errors.
   parser.panicMode = false;
 
+  initTable(&stringConstants);
   advance();
 
   while (!match(TOKEN_EOF)) {
@@ -541,5 +557,7 @@ bool compile(const char* source, Chunk* chunk) {
   }
 
   endCompiler();
+  freeTable(&stringConstants);
+
   return !parser.hadError;
 }

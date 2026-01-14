@@ -61,9 +61,9 @@ ObjString* copyString(const char* chars, int length) {
     return interned;
   }
 
-  ObjString* string = makeString(length);
-  
+  ObjString* string = makeString(length);  
   string->hash = hash;
+
   internString(string);
 
   memcpy(string->chars, chars, length);
