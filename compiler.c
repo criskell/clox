@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "common.h"
 #include "compiler.h"
@@ -63,6 +64,10 @@ typedef struct {
 } ParseRule;
 
 typedef struct {
+  // Local stores a copy of a token.
+  // A token stores a pointer to the first character of the lexeme.
+  // As long as the strings survive the compilation process, which should happen since we are compiling, the pointer inside
+  // the Token should remain valid.
   Token name;
   int depth;
 } Local;
@@ -214,6 +219,17 @@ static void beginScope() {
 
 static void endScope() {
   current->scopeDepth--;
+
+  // All locations with a scope depth greater than the current one will be discarded.
+  // `current->localCount - 1` acts as the last existing local in the array, if `localCount` is greater than zero..
+  while (current->localCount > 0 && current->locals[current->localCount - 1].depth > current->scopeDepth) {
+    // Remember that local variables are slots on the stack, and when local variables are removed, we must remove the slots as well.
+    // One optimization is having an instruction that specifies the number of slots to remove from the stack.
+    emitByte(OP_POP);
+
+    // The quantity decreases because we removed a variable.
+    current->localCount--;
+  }
 }
 
 static void expression();
@@ -244,8 +260,57 @@ static uint8_t identifierConstant(Token* name) {
   return index;
 }
 
+static bool identifiersEqual(Token* a, Token* b) {
+  if (a->length != b->length) return false;
+
+  return memcmp(a->start, b->start, a->length) == 0;
+}
+
+static void addLocal(Token name) {
+  if (current->localCount == UINT8_COUNT) {
+    error("Too many variables in function.");
+    return;
+  }
+
+  Local* local = &current->locals[current->localCount++];
+  local->name = name;
+  // Stores the depth of the scope containing the variable.
+  local->depth = current->scopeDepth;
+}
+
+static void declareVariable() {
+  if (current->scopeDepth == 0) {
+    // Global variables are late bound.
+    return;
+  }
+
+  Token* name = &parser.previous;
+
+  for (int i = current->localCount - 1; i >= 0; i--) {
+    Local* local = &current->locals[i];
+
+    if (local->depth != -1 && local->depth < current->scopeDepth) {
+      break;
+    }
+
+    if (identifiersEqual(name, &local->name)) {
+      error("Already a variable with this name in this scope.");
+    }
+  }
+
+  // Declaring a local variable essentially adds the compiler's list of variables to the current scope.
+  // The compiler needs to remember that the variable exists.
+  addLocal(*name);
+}
+
 static uint8_t parseVariable(const char* errorMessage) {
   consume(TOKEN_IDENTIFIER, errorMessage);
+
+  declareVariable();
+  if (current->scopeDepth > 0) {
+    // Dummy table index
+    return 0;
+  }
 
   // Global variables are searched by name at runtime, and using constants prevents embedding large strings
   // directly into the chunk's instruction list.
@@ -253,6 +318,12 @@ static uint8_t parseVariable(const char* errorMessage) {
 }
 
 static void defineVariable(uint8_t global) {
+  if (current->scopeDepth > 0) {
+    // The temporary (from initializer expression) is already the local (variable).
+    // Locals are always allocated to the top of the stack.
+    return;
+  }
+
   emitBytes(OP_DEFINE_GLOBAL, global);
 }
 
