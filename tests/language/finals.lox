@@ -1,5 +1,11 @@
+final x = 10;
+
 {
-  final x = 10;
-  x = 20;
+  final x = 20;
+
   print x;
 }
+
+print x;
+x = 50;
+print x;

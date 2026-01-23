@@ -78,6 +78,7 @@ typedef struct {
   Local locals[UINT8_COUNT];
   int localCount;
   int scopeDepth;
+  Table globalFinals;
 } Compiler;
 
 // A pointer to the parser's state.
@@ -197,6 +198,7 @@ static void emitConstant(Value value) {
 static void initCompiler(Compiler* compiler) {
   compiler->localCount = 0;
   compiler->scopeDepth = 0;
+  initTable(&compiler->globalFinals);
   current = compiler;
 }
 
@@ -211,6 +213,8 @@ static void endCompiler() {
     printf("==\n");
   } 
 #endif
+
+  freeTable(&current->globalFinals);
 }
 
 static void beginScope() {
@@ -344,9 +348,7 @@ static void defineVariable(uint8_t global) {
   if (current->scopeDepth > 0) {
     // The temporary (from initializer expression) is already the local (variable).
     // Locals are always allocated to the top of the stack.
-    
     markInitialized();
-
     return;
   }
 
@@ -513,6 +515,15 @@ static void namedVariable(Token name, bool canAssign) {
       error("Cannot assign to final variable.");
     }
 
+    if (setOp == OP_SET_GLOBAL) {
+      ObjString* name = AS_STRING(currentChunk()->constants.values[arg]);
+      Value isFinal;
+
+      if (tableGet(&current->globalFinals, name, &isFinal) && AS_BOOL(isFinal)) {
+        error("Cannot assign to final variable.");
+      }
+    }
+
     // Compile assigned value
     expression();
     // Emit an assignment instruction
@@ -650,10 +661,13 @@ static void finalDeclaration() {
 
   // Compile initializer expression
   expression();
-
   consume(TOKEN_SEMICOLON, "Expect ';' after declaration.");
-
   defineFinalVariable(global);
+
+  if (current->scopeDepth == 0) {
+    ObjString* name = AS_STRING(currentChunk()->constants.values[global]);
+    tableSet(&current->globalFinals, name, BOOL_VAL(true));
+  }
 }
 
 static void expressionStatement() {
