@@ -71,6 +71,7 @@ typedef struct {
   // the Token should remain valid.
   Token name;
   int depth;
+  bool isFinal;
 } Local;
 
 typedef struct {
@@ -292,6 +293,7 @@ static void addLocal(Token name) {
   Local* local = &current->locals[current->localCount++];
   local->name = name;
   local->depth = -1;
+  local->isFinal = false;
 }
 
 static void declareVariable() {
@@ -507,6 +509,10 @@ static void namedVariable(Token name, bool canAssign) {
   }
 
   if (canAssign && match(TOKEN_EQUAL)) {
+    if (setOp == OP_SET_LOCAL && current->locals[arg].isFinal) {
+      error("Cannot assign to final variable.");
+    }
+
     // Compile assigned value
     expression();
     // Emit an assignment instruction
@@ -623,6 +629,33 @@ static void varDeclaration() {
   defineVariable(global);
 }
 
+// global is the index in the constant pool
+// storing the variable name.
+static void defineFinalVariable(uint8_t global) {
+  if (current->scopeDepth > 0) {
+    current->locals[current->localCount - 1].isFinal = true;
+    markInitialized();
+    return;
+  }
+
+  emitBytes(OP_DEFINE_GLOBAL, global);
+}
+
+static void finalDeclaration() {
+  uint8_t global = parseVariable("Expect final name.");
+
+  if (!match(TOKEN_EQUAL)) {
+    error("Final variables must be initialized.");
+  }
+
+  // Compile initializer expression
+  expression();
+
+  consume(TOKEN_SEMICOLON, "Expect ';' after declaration.");
+
+  defineFinalVariable(global);
+}
+
 static void expressionStatement() {
   expression();
   consume(TOKEN_SEMICOLON, "Expect ';' after expression.");
@@ -667,6 +700,8 @@ static void synchronize() {
 static void declaration() {
   if (match(TOKEN_VAR)) {
     varDeclaration();
+  } else if (match(TOKEN_FINAL)) {
+    finalDeclaration();
   } else {
     statement();
   }

@@ -149,6 +149,8 @@ static TokenType identifierType() {
             return checkKeyword(2, 3, "lse", TOKEN_FALSE);
           case 'u':
             return checkKeyword(2, 1, "n", TOKEN_FUN);
+          case 'i':
+            return checkKeyword(2, 3, "nal", TOKEN_FINAL);
           case 'o':
             return checkKeyword(2, 1, "r", TOKEN_FOR);
         }
