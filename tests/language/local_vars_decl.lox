@@ -1,3 +1,13 @@
 {
   var x = 10;
+  var y = 15;
+
+  {
+    var x = 20;
+
+    print x;
+    print y;
+  }
 }
+
+print y;

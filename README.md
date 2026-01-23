@@ -28,3 +28,9 @@ Use makefile:
 make
 ./clox tests/language/assignment.lox
 ```
+
+Debugging:
+
+```
+gdb -ex run --args ./clox tests/language/local_vars_decl.lox
+```
