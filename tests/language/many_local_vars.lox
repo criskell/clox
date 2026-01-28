@@ -257,13 +257,15 @@
   var a255 = 255;
 
   // OP_GET_LOCAL_LONG/OP_SET_LOCAL_LONG
-  var a256 = a0;
-  var a257 = a256;
-  var a258 = a257;
-  var a259 = a258;
-  
+  var a256 = 256;
+  var a257 = 257;
+  var a258 = 258;
+  var a259 = 259;
+  var a260 = "hello criskell";
+
   print a256;
   print a0;
   print a255;
   print a259;
+  print a260;
 }

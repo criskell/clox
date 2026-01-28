@@ -107,6 +107,7 @@ static InterpretResult run() {
 #define READ_SHORT() \
   (vm.ip += 2, (uint16_t)((vm.ip[-2] << 8) | vm.ip[-1]))
 #define READ_CONSTANT() (vm.chunk->constants.values[READ_BYTE()])
+#define READ_CONSTANT_LONG() (vm.chunk->constants.values[READ_SHORT()])
 #define READ_STRING() AS_STRING(READ_CONSTANT())
 
 // The `do/while` loop here is a fun technique. It allows you to expand the macro into a set of statements within a block
@@ -147,6 +148,11 @@ static InterpretResult run() {
     switch (instruction = READ_BYTE()) {
       case OP_CONSTANT: {
         Value constant = READ_CONSTANT();
+        push(constant);
+        break;
+      }
+      case OP_CONSTANT_LONG: {
+        Value constant = READ_CONSTANT_LONG();
         push(constant);
         break;
       }
@@ -267,6 +273,7 @@ static InterpretResult run() {
 #undef READ_BYTE
 #undef READ_SHORT
 #undef READ_CONSTANT
+#undef READ_CONSTANT_LONG
 #undef READ_STRING
 #undef BINARY_OP
 }

@@ -183,22 +183,29 @@ static void emitReturn() {
 }
 
 // Adds a constant to the constant pool.
-//
-// FIXME: Support OP_CONSTANT_LONG.
-static uint8_t makeConstant(Value value) {
+static uint16_t makeConstant(Value value) {
   int constant = addConstant(currentChunk(), value);
 
-  if (constant > UINT8_MAX) {
+  if (constant > UINT16_MAX) {
     error("Too many constants in one chunk.");
     return 0;
   }
 
-  return (uint8_t)constant;
+  return (uint16_t)constant;
 }
 
 // Emit OP_CONSTANT instruction.
 static void emitConstant(Value value) {
-  emitBytes(OP_CONSTANT, makeConstant(value));
+  int constant = addConstant(currentChunk(), value);
+
+  if (constant <= UINT8_MAX) {
+    emitBytes(OP_CONSTANT, (uint8_t)constant);
+  } else if (constant <= UINT16_MAX) {
+    emitByte(OP_CONSTANT_LONG);
+    emitShort((uint16_t)constant);
+  } else {
+    error("Too many constants in one chunk.");
+  }
 }
 
 static void initCompiler(Compiler* compiler) {
@@ -266,7 +273,7 @@ static uint8_t identifierConstant(Token* name) {
   }
 
   // `string` is a pointer to an object allocated on the heap.
-  uint8_t index = makeConstant(OBJ_VAL(string));
+  uint8_t index = (uint8_t)makeConstant(OBJ_VAL(string));
   tableSet(&stringConstants, string, NUMBER_VAL((double)index));
 
   return index;
