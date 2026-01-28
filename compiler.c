@@ -239,15 +239,33 @@ static void beginScope() {
 static void endScope() {
   current->scopeDepth--;
 
+  int localsToPop = 0;
+
   // All locations with a scope depth greater than the current one will be discarded.
   // `current->localCount - 1` acts as the last existing local in the array, if `localCount` is greater than zero..
   while (current->localCount > 0 && current->locals[current->localCount - 1].depth > current->scopeDepth) {
     // Remember that local variables are slots on the stack, and when local variables are removed, we must remove the slots as well.
     // One optimization is having an instruction that specifies the number of slots to remove from the stack.
-    emitByte(OP_POP);
+
+    localsToPop++;
 
     // The quantity decreases because we removed a variable.
     current->localCount--;
+  }
+
+  if (localsToPop == 1) {
+    emitByte(OP_POP);
+  } else if (localsToPop <= 255) {
+    emitBytes(OP_POPN, localsToPop);
+  } else {
+    while (localsToPop > 255) {
+      emitBytes(OP_POPN, 255);
+      localsToPop -= 255;
+    }
+
+    if (localsToPop > 0) {
+      emitBytes(OP_POPN, (uint8_t)localsToPop);
+    }
   }
 }
 
