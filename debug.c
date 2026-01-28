@@ -21,7 +21,7 @@ static int constantInstruction(const char *name, Chunk* chunk, int offset) {
   // `%4d`
   // Prints an integer (%d) occupying 4 characters, right-aligned.
   // If the number requires fewer characters, it is pushed to the right with spaces occupying the left.
-  printf("%-20s %4d '", name, constant);
+  printf("%-20s %-4d '", name, constant);
   printValue(chunk->constants.values[constant]);
   printf("'\n");
 
@@ -33,7 +33,7 @@ static int longConstantInstruction(const char* name, Chunk* chunk, int offset) {
   uint16_t constantIndex = (chunk->code[offset + 1] << 8)
     | chunk->code[offset + 2];
 
-  printf("%-20s %4d '", name, constantIndex);
+  printf("%-20s %-4d '", name, constantIndex);
   printValue(chunk->constants.values[constantIndex]);
   printf("'\n");
   
@@ -47,13 +47,13 @@ static int simpleInstruction(const char* name, int offset) {
 
 static int byteInstruction(const char* name, Chunk* chunk, int offset) {
   uint8_t slot = chunk->code[offset + 1];
-  printf("%-20s %4d\n", name, slot);
+  printf("%-20s %-4d\n", name, slot);
   return offset + 2;
 }
 
 static int shortInstruction(const char* name, Chunk* chunk, int offset) {
   uint16_t slot = (chunk->code[offset + 1] << 8) | chunk->code[offset + 2];
-  printf("%-20s %4d\n", name, slot);
+  printf("%-20s %-4d\n", name, slot);
   return offset + 3;
 }
 
