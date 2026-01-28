@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -75,7 +76,7 @@ typedef struct {
 } Local;
 
 typedef struct {
-  Local locals[UINT8_COUNT];
+  Local locals[UINT16_MAX + 1];
   int localCount;
   int scopeDepth;
   Table globalFinals;
@@ -169,6 +170,11 @@ static void emitByte(uint8_t byte) {
 static void emitBytes(uint8_t byte1, uint8_t byte2) {
   emitByte(byte1);
   emitByte(byte2);
+}
+
+static void emitShort(uint16_t value) {
+  emitByte((value >> 8) & 0xff);
+  emitByte(value & 0xff);
 }
 
 // Emits bytecode for a return instruction.
@@ -289,7 +295,7 @@ static int resolveLocal(Compiler* compiler, Token* name) {
 }
 
 static void addLocal(Token name) {
-  if (current->localCount == UINT8_COUNT) {
+  if (current->localCount == UINT16_MAX + 1) {
     error("Too many variables in function.");
     return;
   }
@@ -502,8 +508,13 @@ static void namedVariable(Token name, bool canAssign) {
   int arg = resolveLocal(current, &name);
 
   if (arg != -1) {
-    getOp = OP_GET_LOCAL;
-    setOp = OP_SET_LOCAL;
+    if (arg < UINT8_COUNT) {
+      getOp = OP_GET_LOCAL;
+      setOp = OP_SET_LOCAL;
+    } else {
+      getOp = OP_GET_LOCAL_LONG;
+      setOp = OP_SET_LOCAL_LONG;
+    }
   } else {
     arg = identifierConstant(&name);
     getOp = OP_GET_GLOBAL;
@@ -511,10 +522,12 @@ static void namedVariable(Token name, bool canAssign) {
   }
 
   if (canAssign && match(TOKEN_EQUAL)) {
-    if (setOp == OP_SET_LOCAL && current->locals[arg].isFinal) {
+    // Check local final variables
+    if ((setOp == OP_SET_LOCAL || setOp == OP_SET_LOCAL_LONG) && current->locals[arg].isFinal) {
       error("Cannot assign to final variable.");
     }
 
+    // Check final global variables
     if (setOp == OP_SET_GLOBAL) {
       ObjString* name = AS_STRING(currentChunk()->constants.values[arg]);
       Value isFinal;
@@ -526,10 +539,21 @@ static void namedVariable(Token name, bool canAssign) {
 
     // Compile assigned value
     expression();
+
     // Emit an assignment instruction
-    emitBytes(setOp, (uint8_t)arg); 
+    if (setOp == OP_SET_LOCAL_LONG) {
+      emitByte(setOp);
+      emitShort(arg);
+    } else {
+      emitBytes(setOp, (uint8_t)arg); 
+    }
   } else {
-    emitBytes(getOp, (uint8_t)arg);
+    if (getOp == OP_GET_LOCAL_LONG) {
+      emitByte(getOp);
+      emitShort(arg);
+    } else {
+      emitBytes(getOp, (uint8_t)arg);
+    }
   }
 }
 

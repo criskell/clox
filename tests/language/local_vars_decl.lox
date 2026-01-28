@@ -9,5 +9,3 @@
     print y;
   }
 }
-
-print y;
