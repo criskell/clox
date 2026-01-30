@@ -172,6 +172,18 @@ static void emitBytes(uint8_t byte1, uint8_t byte2) {
   emitByte(byte2);
 }
 
+static int emitJump(uint8_t instruction) {
+  emitByte(instruction);
+
+  // Write a placeholder operand for the jump offset.
+  // Allows skipping up to 65,535 (2^16 - 1) bytes of code.
+  emitByte(0xff);
+  emitByte(0xff);
+
+  // Returns the offset of the instruction issued in the code.
+  return currentChunk()->count - 2;
+}
+
 static void emitShort(uint16_t value) {
   emitByte((value >> 8) & 0xff);
   emitByte(value & 0xff);
@@ -206,6 +218,19 @@ static void emitConstant(Value value) {
   } else {
     error("Too many constants in one chunk.");
   }
+}
+
+// Apply a named technique `backpatching`.
+static void patchJump(int offset) {
+  // `-2` skip over the jump offset bytes.
+  int jump = currentChunk()->count - offset - 2;
+
+  if (jump > UINT16_MAX) {
+    error("Too much code to jump over.");
+  }
+
+  currentChunk()->code[offset] = (jump >> 8) & 0xff;
+  currentChunk()->code[offset + 1] = jump & 0xff;
 }
 
 static void initCompiler(Compiler* compiler) {
@@ -386,6 +411,34 @@ static void defineVariable(uint8_t global) {
   emitBytes(OP_DEFINE_GLOBAL, global);
 }
 
+static void and_(bool canAssign) {
+  // At this point, the expression on the left has already been compiled.
+  // And it's located at the top of the stack.
+
+  // If it's false, we skip the right-hand operand and leave the left-hand expression on top of the stack.
+  int endJump = emitJump(OP_JUMP_IF_FALSE);
+  
+  // Pops the condition value (left-hand side expression) from the stack
+  emitByte(OP_POP); 
+
+  // Evaluates the right operand.
+  // It becomes the result of the entire AND expression.
+
+  // `parsePrecedence` continues the parsing from the current token.
+  // Consumes expressions whose precedence is greater than or equal to `PREC_AND`.
+  // Ensures that expressions with higher precedence (comparison, equality, etc.) are correctly grouped on the right-hand side.
+  // For example, given
+  // `a and b == c and d`
+  // We correctly group expressions following this form
+  // `(a and (b == c)) and d`
+  // This requires that the right-hand side of the first `and` consumes everything that has a precedence greater than to `and`.
+  // but do not consume operators with lower precedence (like another `and` or `or`).
+  // This `parsePrecedence` does not consume the subsequent `and`, thus maintaining left associativity.
+  parsePrecedence(PREC_AND);
+
+  patchJump(endJump);
+}
+
 // The goal is to compile a binary operator found in an expression.
 static void binary(bool canAssign) {
   TokenType operatorType = parser.previous.type;
@@ -525,7 +578,14 @@ static void string(bool canAssgin) {
 //
 // FIXME: Jumps.
 static void or_(bool canAssign) {
+  int elseJump = emitJump(OP_JUMP_IF_FALSE);
+  int endJump = emitJump(OP_JUMP);
+
+  patchJump(elseJump);
+  emitByte(OP_POP);
+
   parsePrecedence(PREC_OR);
+  patchJump(endJump);
 }
 
 static void namedVariable(Token name, bool canAssign) {
@@ -632,7 +692,7 @@ ParseRule rules[] = {
   [TOKEN_IDENTIFIER] = {variable, NULL, PREC_NONE},
   [TOKEN_STRING] = {string, NULL, PREC_NONE},
   [TOKEN_NUMBER] = {number, NULL, PREC_NONE},
-  [TOKEN_AND] = {NULL, NULL, PREC_NONE},
+  [TOKEN_AND] = {NULL, and_, PREC_AND},
   [TOKEN_CLASS] = {NULL, NULL, PREC_NONE},
   [TOKEN_ELSE] = {NULL, NULL, PREC_NONE},
   [TOKEN_FALSE] = {literal, NULL, PREC_NONE},
@@ -726,6 +786,41 @@ static void expressionStatement() {
   emitByte(OP_POP); // ensure statement stack effect = 0 
 }
 
+static void ifStatement() {
+  consume(TOKEN_LEFT_PAREN, "Expect '(' after 'if'.");
+  expression();
+  consume(TOKEN_RIGHT_PAREN, "Expect ')' after condition.");
+  // The condition value is at the top of the stack now.
+
+  int thenJump = emitJump(OP_JUMP_IF_FALSE);
+
+  // Everything up to `patchJump(thenJump)` will be placed in the `then` branch.
+  emitByte(OP_POP); // Pop condition value in case the condition is truthy. Ensures the stack effect = 0 of statements.
+  statement(); // Compile then branch
+
+  // This jump is used if the condition is true
+  int elseJump = emitJump(OP_JUMP);
+
+  // Now that we've compiled the `then` (`statement` + unconditional jump) branch, we're patching the jump that's executed
+  // if the condition is false
+  patchJump(thenJump);
+
+  // Here is the else branch.
+
+  // This code will be placed in an `else` statement, which can be implicit
+  emitByte(OP_POP); // Pop condition value in case the condition is falsy
+
+  if (match(TOKEN_ELSE)) {
+    statement();
+  }
+
+  // Patch the jump that is executed within the `then` branch, effectively skipping the `else` branch (+ `OP_POP`).
+  patchJump(elseJump);
+
+  // We guarantee that a branch is always taken and that the first instruction in each branch is to remove the value condition.
+  // This happens even if we don't have an `else` statement.
+}
+
 static void printStatement() {
   expression();
   consume(TOKEN_SEMICOLON, "Expect ';' after value.");
@@ -776,6 +871,8 @@ static void declaration() {
 static void statement() {
   if (match(TOKEN_PRINT)) {
     printStatement();
+  } else if (match(TOKEN_IF)) {
+    ifStatement();
   } else if (match(TOKEN_LEFT_BRACE)) {
     beginScope();
     block();

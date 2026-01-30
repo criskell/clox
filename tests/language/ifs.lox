@@ -1,0 +1,28 @@
+if (1 == 1) {
+  print "then";
+} else {
+  print "else";
+}
+
+print nil and true;
+print nil or true or false;
+print 1 or nil;
+print nil or 1;
+print nil or nil;
+print nil or 0;
+print nil and true;
+print false and true;
+print true and true;
+print false or false;
+
+if (true) {
+  print "then true";
+}
+
+if (false) {
+  print "then false";
+}
+
+if (1) {
+  print 1;
+}
