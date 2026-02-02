@@ -796,6 +796,63 @@ static void expressionStatement() {
   emitByte(OP_POP); // ensure statement stack effect = 0 
 }
 
+static void forStatement() {
+  // Compile initializer
+  beginScope();
+
+  consume(TOKEN_LEFT_PAREN, "Expect '(' after 'for'.");
+
+  if (match(TOKEN_SEMICOLON)) {
+    // No initializer.
+  } else if (match(TOKEN_VAR)) {
+    varDeclaration();
+  } else {
+    // I call this variant because it will guarantee a stack effect of zero by emitting an OP_POP.
+    // And search for a semicolon.
+    // The initializer should not store anything on the stack.
+    expressionStatement();
+  }
+
+  int loopStart = currentChunk()->count;
+
+  // Compile condition expression
+  int exitJump = -1;
+  if (!match(TOKEN_SEMICOLON)) {
+    expression();
+    consume(TOKEN_SEMICOLON, "Expect ';' after loop condition.");
+
+    exitJump = emitJump(OP_JUMP_IF_FALSE);
+    emitByte(OP_POP); // Remove condition value.
+  }
+
+  // Compile increment
+  if (!match(TOKEN_RIGHT_PAREN)) {
+    int bodyJump = emitJump(OP_JUMP);
+    int incrementStart = currentChunk()->count;
+
+    expression();
+    emitByte(OP_POP);
+    consume(TOKEN_RIGHT_PAREN, "Expect ')' after for clauses.");
+
+    // Move to the top of the for loop.
+    // Move to right before the conditional expression.
+    emitLoop(loopStart);
+    loopStart = incrementStart;
+    patchJump(bodyJump);
+  }
+
+  statement();
+  emitLoop(loopStart);
+
+  // Executed when the loop finishes.
+  if (exitJump != -1) {
+    patchJump(exitJump);
+    emitByte(OP_POP); // Remove condition value from stack.
+  }
+
+  endScope();
+}
+
 static void ifStatement() {
   consume(TOKEN_LEFT_PAREN, "Expect '(' after 'if'.");
   expression();
@@ -897,6 +954,8 @@ static void declaration() {
 static void statement() {
   if (match(TOKEN_PRINT)) {
     printStatement();
+  } else if (match(TOKEN_FOR)) {
+    forStatement();
   } else if (match(TOKEN_IF)) {
     ifStatement();
   } else if (match(TOKEN_WHILE)) {
