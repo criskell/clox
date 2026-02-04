@@ -1,0 +1,13 @@
+fun test() {
+  print "test(): dentro da função";
+  
+  return 41;
+}
+
+print "Função:";
+print test;
+
+print "Resultado: ";
+print test() + 1;
+
+print "naruto";
