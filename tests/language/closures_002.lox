@@ -1,0 +1,12 @@
+fun outer() {
+  var x = "outside";
+
+  fun inner() {
+    return x;
+  }
+
+  return inner;
+}
+
+var closure = outer();
+print closure();

@@ -44,6 +44,19 @@ void freeObject(Obj* object) {
       FREE(ObjFunction, object);
       break;
     }
+
+    case OBJ_CLOSURE: {
+      ObjClosure* closure = (ObjClosure*)object;
+      // ObjClosure does not own the ObjUpvalue objects themselves, but it does own the array
+      // containing pointers to those upvalues.
+      FREE_ARRAY(ObjUpvalue*, closure->upvalues, closure->upvalueCount);
+      FREE(ObjClosure, closure);
+      break;
+    }
+
+    case OBJ_UPVALUE:
+      FREE(ObjUpvalue, object);
+      break;
   }
 }
 

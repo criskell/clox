@@ -10,7 +10,7 @@
 #define STACK_MAX (FRAMES_MAX * 256 * 256)
 
 typedef struct {
-  ObjFunction* function;
+  ObjClosure* closure;
   // Dereferencing a pointer is faster than accessing an array by its index.
   // The JVM calls this a Program Counter (PC). x86, x64, and CLR call it an Instruction Pointer (IP).
   // It always points to the next instruction.
@@ -26,6 +26,7 @@ typedef struct {
   Table globals;
   Obj* objects;
   Table strings;
+  ObjUpvalue* openUpvalues;
 } VM;
 
 typedef enum {
