@@ -146,7 +146,7 @@ int disassembleInstruction(Chunk* chunk, int offset) {
     case OP_CLOSURE: {
       offset++;
       uint8_t constant = chunk->code[offset++];
-      printf("%-20s %4d", "OP_CLOSURE", constant);
+      printf("%-20s %-4d ", "OP_CLOSURE", constant);
       printValue(chunk->constants.values[constant]);
       printf("\n");
 
@@ -156,7 +156,7 @@ int disassembleInstruction(Chunk* chunk, int offset) {
         int isLocal = chunk->code[offset++];
         int index = chunk->code[offset++];
 
-        printf("%04d      |                     %s %d\n", offset - 2, isLocal ? "local" : "upvalue", index);
+        printf("%04d    |                      %s %d\n", offset - 2, isLocal ? "local" : "upvalue", index);
       }
 
       return offset;
