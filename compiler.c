@@ -982,15 +982,20 @@ static void expressionStatement() {
 }
 
 static void forStatement() {
-  // Compile initializer
   beginScope();
+
+  int loopVariable = -1;
+  Token loopVariableName;
 
   consume(TOKEN_LEFT_PAREN, "Expect '(' after 'for'.");
 
+  // Compile initializer
   if (match(TOKEN_SEMICOLON)) {
     // No initializer.
   } else if (match(TOKEN_VAR)) {
+    loopVariableName = parser.current;
     varDeclaration();
+    loopVariable = current->localCount - 1;
   } else {
     // I call this variant because it will guarantee a stack effect of zero by emitting an OP_POP.
     // And search for a semicolon.
@@ -1000,7 +1005,7 @@ static void forStatement() {
 
   int loopStart = currentChunk()->count;
 
-  // Compile condition expression
+  // Compile conditioal clause.
   int exitJump = -1;
   if (!match(TOKEN_SEMICOLON)) {
     expression();
@@ -1010,7 +1015,7 @@ static void forStatement() {
     emitByte(OP_POP); // Remove condition value.
   }
 
-  // Compile increment
+  // Compile increment clause.
   if (!match(TOKEN_RIGHT_PAREN)) {
     int bodyJump = emitJump(OP_JUMP);
     int incrementStart = currentChunk()->count;
@@ -1019,19 +1024,47 @@ static void forStatement() {
     emitByte(OP_POP);
     consume(TOKEN_RIGHT_PAREN, "Expect ')' after for clauses.");
 
-    // Move to the top of the for loop.
+    // Move to the top of the `for` loop.
     // Move to right before the conditional expression.
     emitLoop(loopStart);
     loopStart = incrementStart;
     patchJump(bodyJump);
   }
+  
+  // Compile the body now.
+
+  // Create a new shadowed variable.
+  int innerVariable = -1;
+
+  if (loopVariable != -1) {
+    // Create a scope for the shadowed variable.
+    beginScope();
+
+    emitBytes(OP_GET_LOCAL, (uint8_t)loopVariable);
+    addLocal(loopVariableName);
+    markInitialized();
+
+    // Get stack slot
+    innerVariable = current->localCount - 1;
+  }
 
   statement();
+  
+  if (loopVariable != -1) {
+    // Sync inner variable with loop variable
+    emitBytes(OP_GET_LOCAL, (uint8_t)innerVariable);
+    emitBytes(OP_SET_LOCAL, (uint8_t)loopVariable);
+    emitByte(OP_POP); // Remove updated value from stack.
+
+    // Close scope at the end of body compilation.
+    endScope();
+  }
+  
   emitLoop(loopStart);
 
   // Executed when the loop finishes.
   if (exitJump != -1) {
-    patchJump(exitJump);
+    patchJump(exitJump); // Modify `exitJump` to reference the immediately following instruction.
     emitByte(OP_POP); // Remove condition value from stack.
   }
 
