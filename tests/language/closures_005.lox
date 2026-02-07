@@ -1,0 +1,27 @@
+// A closure can simulate objects and vice-versa.
+// http://wiki.c2.com/?ClosuresAndObjectsAreEquivalent
+
+// `vector` is the constructor
+fun vector(x, y) {
+  // `object` implements method handling
+  fun object(message) {
+    fun add(other) {
+      return vector(x + other("x"), y + other("y"));
+    }
+
+    if (message == "x") return x;
+    if (message == "y") return y;
+    if (message == "add") return add;
+
+    print "error: unknown message";
+  }
+
+  return object;
+}
+
+var a = vector(1, 2);
+var b = vector(3, 4);
+var c = a("add")(b);
+
+print c("x");
+print c("y");

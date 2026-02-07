@@ -95,7 +95,9 @@ typedef struct Compiler {
   ObjFunction* function;
   FunctionType type;
 
-  Local locals[UINT16_MAX + 1];
+  // FIXME: It is not possible to nest three functions when `ulimit -s` is 8192 KiB and we.
+  //        use `UINT16_MAX + 1`.
+  Local locals[UINT8_COUNT * 2];
   int localCount;
   Upvalue upvalues[UINT8_COUNT];
   int scopeDepth;
