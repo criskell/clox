@@ -454,7 +454,7 @@ static InterpretResult run() {
         break;
       }
       case OP_RETURN: {
-        Value result = pop();
+        Value result = pop(); // Remove return's result
 
         // Pass the first stack slot owned by the function
         // To close all upvalues.
