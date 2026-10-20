@@ -102,7 +102,7 @@ bool tableSet(Table* table, ObjString* key, Value value) {
     int capacity = GROW_CAPACITY(table->capacity);
     adjustCapacity(table, capacity);
   }
-  
+
   Entry* entry = findEntry(table->entries, table->capacity, key);
   bool isNewKey = entry->key == NULL;
 
@@ -152,6 +152,24 @@ ObjString* tableFindString(Table* table, const char* chars, int length, uint32_t
     }
 
     index = (index + 1) % table->capacity;
+  }
+}
+
+void tableRemoveWhite(Table* table) {
+  for (int i = 0; i < table->capacity; i++) {
+    Entry* entry = &table->entries[i];
+
+    if (entry->key != NULL && !entry->key->obj.isMarked) {
+      tableDelete(table, entry->key);
+    }
+  }
+}
+
+void markTable(Table* table) {
+  for (int i = 0; i < table->capacity; i++) {
+    Entry* entry = &table->entries[1];
+    markObject((Obj*)entry->key);
+    markValue(entry->value);
   }
 }
 

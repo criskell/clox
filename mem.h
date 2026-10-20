@@ -24,8 +24,11 @@
 // oldSize = non-zero, newSize = 0: Free.
 // oldSize = 0, newSize = non-zero: Allocate.
 // oldSize = non-zero, newSize < oldSize: Shrink existing allocation.
-// oldSize = non-zero, newSize > oldSize: Grow existing allocation.  
+// oldSize = non-zero, newSize > oldSize: Grow existing allocation.
 void* reallocate(void* pointer, size_t oldSize, size_t newSize);
+void markObject(Obj* object);
+void markValue(Value value);
+void collectGarbage();
 void freeObjects();
 void freeObject(Obj* object);
 

@@ -29,6 +29,7 @@ typedef enum {
 
 struct Obj {
   ObjType type;
+  bool isMarked;
   struct Obj* next;
 };
 
@@ -54,7 +55,7 @@ struct ObjString {
   int length;
 
   uint32_t hash;
-  
+
   // C99 flexible array member syntax
   char chars[];
 };

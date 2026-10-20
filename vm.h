@@ -21,11 +21,21 @@ typedef struct {
 typedef struct {
   CallFrame frames[FRAMES_MAX];
   int frameCount;
+
   Value stack[STACK_MAX];
   Value* stackTop;
-  Table globals;
-  Obj* objects;
+
   Table strings;
+  Table globals;
+
+  size_t bytesAllocated;
+  size_t nextGC;
+  Obj* objects;
+
+  int grayCount;
+  int grayCapacity;
+  Obj** grayStack;
+
   ObjUpvalue* openUpvalues;
 } VM;
 

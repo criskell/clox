@@ -13,8 +13,15 @@
 static Obj* allocateObject(size_t size, ObjType type) {
   Obj* object = (Obj*)reallocate(NULL, 0, size);
   object->type = type;
+  object->isMarked = false;
+
   object->next = vm.objects;
   vm.objects = object;
+
+#ifdef DEBUG_LOG_GC
+  printf("%p allocate %zu for %d\n", (void*)object, size, type);
+#endif
+
   return object;
 }
 
@@ -54,7 +61,7 @@ uint32_t hashString(const char* key, int length) {
   // - Uniform: The outputs should be evenly distributed, dispersing throughout the numerical range
   //            to avoid collisions and clustering.
   // - Fast: Because each operation on the table requires a hash.
-  
+
   // We start with an initial hash, which is a constant with some mathematical properties.
   uint32_t hash = 2166136261u;
 
@@ -66,7 +73,7 @@ uint32_t hashString(const char* key, int length) {
     // It scrambles the resulting bits around a value.
     hash *= 16777619;
   }
-  
+
   return hash;
 }
 
@@ -78,7 +85,7 @@ void internString(ObjString* key) {
 ObjString* makeString(int length) {
   ObjString* string = (ObjString*)allocateObject(sizeof(ObjString) + length + 1, OBJ_STRING);
   string->length = length;
-  
+
   return string;
 }
 
@@ -90,10 +97,12 @@ ObjString* copyString(const char* chars, int length) {
     return interned;
   }
 
-  ObjString* string = makeString(length);  
+  ObjString* string = makeString(length);
   string->hash = hash;
 
+  push(OBJ_VAL(string));
   internString(string);
+  pop();
 
   memcpy(string->chars, chars, length);
   string->chars[length] = '\0';
@@ -123,7 +132,7 @@ void printObject(Value value) {
     case OBJ_NATIVE:
       printf("<native fn>");
       break;
-    
+
     case OBJ_STRING:
       printf("%s", AS_CSTRING(value));
       break;

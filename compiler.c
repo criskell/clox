@@ -7,6 +7,7 @@
 #include "common.h"
 #include "compiler.h"
 #include "object.h"
+#include "mem.h"
 #include "scanner.h"
 
 #ifdef DEBUG_PRINT_CODE
@@ -22,7 +23,7 @@ typedef struct {
 
   // Stores the last token consumed.
   Token previous;
-  
+
   // Indicates whether an error occurred during parsing, for error reporting.
   bool hadError;
 
@@ -275,7 +276,7 @@ static void initCompiler(Compiler* compiler, FunctionType type) {
   compiler->function = newFunction();
 
   initTable(&compiler->globalFinals);
-  
+
   current = compiler;
 
   if (type != TYPE_SCRIPT) {
@@ -306,7 +307,7 @@ static ObjFunction* endCompiler() {
   if (!parser.hadError) {
     disassembleChunk(currentChunk(), function->name != NULL ? function->name->chars : "<script>");
     printf("==\n");
-  } 
+  }
 #endif
 
   freeTable(&current->globalFinals);
@@ -401,12 +402,12 @@ static bool identifiersEqual(Token* a, Token* b) {
 static int resolveLocal(Compiler* compiler, Token* name) {
   for (int i = compiler->localCount - 1; i >= 0; i--) {
     Local* local = &compiler->locals[i];
-    
+
     if (identifiersEqual(name, &local->name)) {
       if (local->depth == -1) {
         error("Can't read local variable in its own initializer.");
       }
-      
+
       return i;
     }
   }
@@ -437,7 +438,7 @@ static int addUpvalue(Compiler* compiler, uint8_t index, bool isLocal) {
 
 static int resolveUpvalue(Compiler* compiler, Token* name) {
   if (compiler->enclosing == NULL) {
-    // Base case where the variable can't be resolved lexically and is treated as global.    
+    // Base case where the variable can't be resolved lexically and is treated as global.
     // We know we've reached the outermost function without finding a local variable.
     // The variable must be global.
     return -1;
@@ -521,7 +522,7 @@ static void markInitialized() {
   }
 
   current->locals[current->localCount - 1].depth = current->scopeDepth;
-  
+
   // Declaring is when a variable is added to the scope, and defining is when it becomes available for use.
 }
 
@@ -561,9 +562,9 @@ static void and_(bool canAssign) {
 
   // If it's false, we skip the right-hand operand and leave the left-hand expression on top of the stack.
   int endJump = emitJump(OP_JUMP_IF_FALSE);
-  
+
   // Pops the condition value (left-hand side expression) from the stack
-  emitByte(OP_POP); 
+  emitByte(OP_POP);
 
   // Evaluates the right operand.
   // It becomes the result of the entire AND expression.
@@ -701,7 +702,7 @@ static void unary(bool canAssgin) {
     case TOKEN_BANG:
       emitByte(OP_NOT);
       break;
-    
+
     case TOKEN_MINUS:
       emitByte(OP_NEGATE);
       break;
@@ -754,7 +755,7 @@ static void namedVariable(Token name, bool canAssign) {
   } else if ((arg = resolveUpvalue(current, &name)) != -1) {
     // `resolveUpvalue` searches for a variable declared in surrounding functions.
     getOp = OP_GET_UPVALUE;
-    setOp = OP_SET_UPVALUE; 
+    setOp = OP_SET_UPVALUE;
   } else {
     arg = identifierConstant(&name);
     getOp = OP_GET_GLOBAL;
@@ -785,7 +786,7 @@ static void namedVariable(Token name, bool canAssign) {
       emitByte(setOp);
       emitShort(arg);
     } else {
-      emitBytes(setOp, (uint8_t)arg); 
+      emitBytes(setOp, (uint8_t)arg);
     }
   } else {
     if (getOp == OP_GET_LOCAL_LONG) {
@@ -894,7 +895,7 @@ static void function(FunctionType type) {
   beginScope();
 
   consume(TOKEN_LEFT_PAREN, "Expect '(' after function name.");
-  
+
   if (!check(TOKEN_RIGHT_PAREN)) {
     do {
       current->function->arity++;
@@ -907,7 +908,7 @@ static void function(FunctionType type) {
       defineVariable(constant);
     } while (match(TOKEN_COMMA));
   }
-  
+
   consume(TOKEN_RIGHT_PAREN, "Expect ')' after parameters.");
   consume(TOKEN_LEFT_BRACE, "Expect '{' before function body.");
   block();
@@ -980,7 +981,7 @@ static void expressionStatement() {
   expression();
   consume(TOKEN_SEMICOLON, "Expect ';' after expression.");
   // an expression evaluates the expression and discards the result.
-  emitByte(OP_POP); // ensure statement stack effect = 0 
+  emitByte(OP_POP); // ensure statement stack effect = 0
 }
 
 static void forStatement() {
@@ -1032,7 +1033,7 @@ static void forStatement() {
     loopStart = incrementStart;
     patchJump(bodyJump);
   }
-  
+
   // Compile the body now.
 
   // Create a new shadowed variable.
@@ -1051,7 +1052,7 @@ static void forStatement() {
   }
 
   statement();
-  
+
   if (loopVariable != -1) {
     // Sync inner variable with loop variable
     emitBytes(OP_GET_LOCAL, (uint8_t)innerVariable);
@@ -1061,7 +1062,7 @@ static void forStatement() {
     // Close scope at the end of body compilation.
     endScope();
   }
-  
+
   emitLoop(loopStart);
 
   // Executed when the loop finishes.
@@ -1224,7 +1225,7 @@ ObjFunction* compile(const char* source) {
   advance();
 
   while (!match(TOKEN_EOF)) {
-    declaration();  
+    declaration();
   }
 
   ObjFunction* function = endCompiler();
@@ -1232,4 +1233,13 @@ ObjFunction* compile(const char* source) {
 
   // Returning NULL prevents the VM from executing potentially invalid bytecode due to syntax errors.
   return parser.hadError ? NULL : function;
+}
+
+void markCompilerRoots() {
+  Compiler* compiler = current;
+
+  while (compiler != NULL) {
+    markObject((Obj*)compiler->function);
+    compiler = compiler->enclosing;
+  }
 }

@@ -83,7 +83,14 @@ static void defineNative(const char* name, NativeFn function) {
 void initVM() {
   resetStack();
 
-  vm.objects = NULL; 
+  vm.objects = NULL;
+  vm.bytesAllocated = 0;
+  vm.nextGC = 1024 * 1024;
+
+  vm.grayCount = 0;
+  vm.grayCapacity = 0;
+  vm.grayStack = NULL;
+
   initTable(&vm.globals);
   initTable(&vm.strings);
 
@@ -128,7 +135,7 @@ static bool call(ObjClosure* closure, int argCount) {
   // `-1` is to align the frame window with the beginning of the arguments including function object.
   // Otherwise, it would skip the function object.
   frame->slots = vm.stackTop - argCount - 1;
-  
+
   return true;
 }
 
@@ -194,8 +201,8 @@ static bool isFalsey(Value value) {
 }
 
 static void concatenate() {
-  ObjString* b = AS_STRING(pop());
-  ObjString* a = AS_STRING(pop());
+  ObjString* b = AS_STRING(peek(0));
+  ObjString* a = AS_STRING(peek(1));
 
   int length = a->length + b->length;
   ObjString* result = makeString(length);
@@ -213,6 +220,9 @@ static void concatenate() {
   }
 
   internString(result);
+
+  pop();
+  pop();
   push(OBJ_VAL(result));
 }
 
@@ -239,7 +249,7 @@ static InterpretResult run() {
     push(valueType(a op b)); \
   } while(false)
 
-  for (;;) { 
+  for (;;) {
 #ifdef DEBUG_TRACE_EXECUTION
     printf("          ");
 
@@ -342,7 +352,7 @@ static InterpretResult run() {
       }
       case OP_DEFINE_GLOBAL: {
         ObjString* name = READ_STRING();
-        
+
         // Initializer expression is in stack at 0 distance.
         // We use peek() here to ensure that the value is reachable by the garbage collector and thus is not collected
         // in the middle of an insertion into the hash table. A hash table can trigger a dynamic allocation which can
@@ -356,7 +366,7 @@ static InterpretResult run() {
         uint8_t slot = READ_BYTE();
 
         push(*frame->closure->upvalues[slot]->location);
-        
+
         break;
       }
       case OP_SET_UPVALUE: {
@@ -416,7 +426,7 @@ static InterpretResult run() {
       case OP_LOOP: {
         uint16_t offset = READ_SHORT();
         frame->ip -= offset;
-        
+
         break;
       }
       case OP_CALL: {
@@ -434,7 +444,7 @@ static InterpretResult run() {
         ObjFunction* function = AS_FUNCTION(READ_CONSTANT()); // Load the compiled function from the constant table.
         ObjClosure* closure = newClosure(function); // Wrap that function in a new ObjClosure.
         push(OBJ_VAL(closure)); // Push the result onto the stack.
-        
+
         for (int i = 0; i < closure->upvalueCount; i++) {
           uint8_t isLocal = READ_BYTE();
           uint8_t index = READ_BYTE();
@@ -445,7 +455,7 @@ static InterpretResult run() {
             closure->upvalues[i] = frame->closure->upvalues[index];
           }
         }
-        
+
         break;
       }
       case OP_CLOSE_UPVALUE: {
@@ -475,7 +485,7 @@ static InterpretResult run() {
         // The top of the stack ends at the beginning of the stack window of the function that is returning.
         vm.stackTop = frame->slots;
         push(result);
-      
+
         frame = &vm.frames[vm.frameCount - 1];
 
         break;
